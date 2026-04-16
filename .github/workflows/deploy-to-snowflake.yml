@@ -35,6 +35,7 @@ jobs:
           import snowflake.connector
           import os
           import glob
+          import re
 
           conn = snowflake.connector.connect(
               account  = os.environ["SNOWFLAKE_ACCOUNT"],
@@ -87,9 +88,19 @@ jobs:
           total_skipped  = 0
 
           for folder in OBJECT_ORDER:
-              sql_files = sorted(glob.glob(f"{folder}/*.sql"))
+                sql_files = sorted(glob.glob(f"{folder}/*.sql"))
 
-              if not sql_files:
+                # If this is a DML folder, only execute files that follow the
+                # naming convention: start with a number and underscore (e.g. "1_insert_")
+                if folder.rstrip('/').endswith('DML'):
+                  filtered = [p for p in sql_files if re.match(r'^\d+_', os.path.basename(p))]
+                  skipped_count = len(sql_files) - len(filtered)
+                  if skipped_count:
+                    print(f"  [INFO] Skipping {skipped_count} DML file(s) not matching naming convention in {folder}")
+                    total_skipped += skipped_count
+                  sql_files = filtered
+
+                if not sql_files:
                   print(f"[SKIP] No .sql files found in: {folder}")
                   continue
 
