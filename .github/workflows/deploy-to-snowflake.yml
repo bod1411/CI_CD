@@ -43,16 +43,7 @@ jobs:
           )
           cur = conn.cursor()
 
-          # Dependency-safe execution order:
-          # 1. Database  -> everything lives inside a DB
-          # 2. Schema    -> tables/views/procs live inside a schema
-          # 3. Tables    -> base layer, referenced by all other objects
-          # 4. Functions -> must exist before views/procedures that call them
-          # 5. Views     -> built on tables and functions
-          # 6. Procedures -> reference tables, views, and functions
-          # 7. Streamlit -> references tables/views/procs
-          # 8. Notebooks -> analytical layer on top of everything
-          # 9. DML       -> data inserts last (tables must exist first)
+          # Dependency-safe execution order
           OBJECT_ORDER = [
               "APP_PULSE/US/DDL/01_database",
               "APP_PULSE/US/DDL/02_schema",
@@ -90,8 +81,11 @@ jobs:
 
                   try:
                       print(f"  -> Executing: {os.path.basename(filepath)}")
-                      cur.execute(sql)
-                      print(f"     OK - Success")
+                      # Split on semicolons to support multi-statement files
+                      statements = [s.strip() for s in sql.split(';') if s.strip()]
+                      for statement in statements:
+                          cur.execute(statement)
+                      print(f"     OK - Success ({len(statements)} statement(s))")
                       total_executed += 1
                   except Exception as e:
                       print(f"     FAILED: {filepath}")
