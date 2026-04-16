@@ -1,0 +1,12 @@
+
+CREATE OR ALTER view APP_PULSE.US.EMPLOYEE_V as
+select
+    EMPNO,
+    ENAME,
+    JOB,
+    MGR,
+    HIREDATE,
+    SAL,
+    COMM,
+    DEPTNO
+from APP_PULSE.US.EMPLOYEE;
