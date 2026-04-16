@@ -44,7 +44,6 @@ jobs:
           )
           cur = conn.cursor()
 
-          # Dependency-safe execution order
           OBJECT_ORDER = [
               "APP_PULSE/US/DDL/01_database",
               "APP_PULSE/US/DDL/02_schema",
@@ -88,19 +87,17 @@ jobs:
           total_skipped  = 0
 
           for folder in OBJECT_ORDER:
-                sql_files = sorted(glob.glob(f"{folder}/*.sql"))
+              sql_files = sorted(glob.glob(f"{folder}/*.sql"))
 
-                # If this is a DML folder, only execute files that follow the
-                # naming convention: start with a number and underscore (e.g. "1_insert_")
-                if folder.rstrip('/').endswith('DML'):
+              if folder.rstrip('/').endswith('DML'):
                   filtered = [p for p in sql_files if re.match(r'^\d+_', os.path.basename(p))]
                   skipped_count = len(sql_files) - len(filtered)
                   if skipped_count:
-                    print(f"  [INFO] Skipping {skipped_count} DML file(s) not matching naming convention in {folder}")
-                    total_skipped += skipped_count
+                      print(f"  [INFO] Skipping {skipped_count} DML file(s) not matching naming convention in {folder}")
+                      total_skipped += skipped_count
                   sql_files = filtered
 
-                if not sql_files:
+              if not sql_files:
                   print(f"[SKIP] No .sql files found in: {folder}")
                   continue
 
@@ -120,8 +117,6 @@ jobs:
                   try:
                       print(f"  -> Executing: {os.path.basename(filepath)}")
 
-                      # If file contains $$ (procedures/functions), send as ONE statement
-                      # Otherwise split on ; to handle multi-statement DML files
                       if '$$' in sql:
                           statements = [sql]
                       else:
