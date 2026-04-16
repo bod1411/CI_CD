@@ -1,0 +1,111 @@
+name: Deploy Snowflake Objects
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  deploy:
+    if: github.event.pull_request.merged == true
+
+    runs-on: ubuntu-latest
+
+    env:
+      SNOWFLAKE_ACCOUNT:  ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER:     ${{ secrets.SNOWFLAKE_USER }}
+      SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Snowflake connector
+        run: pip install snowflake-connector-python
+
+      - name: Deploy all Snowflake objects
+        run: |
+          python - <<'EOF'
+          import snowflake.connector
+          import os
+          import glob
+
+          conn = snowflake.connector.connect(
+              account  = os.environ["SNOWFLAKE_ACCOUNT"],
+              user     = os.environ["SNOWFLAKE_USER"],
+              password = os.environ["SNOWFLAKE_PASSWORD"],
+          )
+          cur = conn.cursor()
+
+          # Dependency-safe execution order:
+          # 1. Database  -> everything lives inside a DB
+          # 2. Schema    -> tables/views/procs live inside a schema
+          # 3. Tables    -> base layer, referenced by all other objects
+          # 4. Functions -> must exist before views/procedures that call them
+          # 5. Views     -> built on tables and functions
+          # 6. Procedures -> reference tables, views, and functions
+          # 7. Streamlit -> references tables/views/procs
+          # 8. Notebooks -> analytical layer on top of everything
+          # 9. DML       -> data inserts last (tables must exist first)
+          OBJECT_ORDER = [
+              "APP_PULSE/US/DDL/01_database",
+              "APP_PULSE/US/DDL/02_schema",
+              "APP_PULSE/US/DDL/03_tables",
+              "APP_PULSE/US/DDL/04_functions",
+              "APP_PULSE/US/DDL/05_views",
+              "APP_PULSE/US/DDL/06_procedures",
+              "APP_PULSE/US/DDL/07_streamlit",
+              "APP_PULSE/US/DDL/08_notebooks",
+              "APP_PULSE/US/DML",
+          ]
+
+          total_executed = 0
+          total_skipped  = 0
+
+          for folder in OBJECT_ORDER:
+              sql_files = sorted(glob.glob(f"{folder}/*.sql"))
+
+              if not sql_files:
+                  print(f"[SKIP] No .sql files found in: {folder}")
+                  continue
+
+              print(f"\n{'='*60}")
+              print(f"Processing: {folder} ({len(sql_files)} file(s))")
+              print(f"{'='*60}")
+
+              for filepath in sql_files:
+                  with open(filepath, "r") as f:
+                      sql = f.read().strip()
+
+                  if not sql:
+                      print(f"  [SKIP] Empty file: {filepath}")
+                      total_skipped += 1
+                      continue
+
+                  try:
+                      print(f"  -> Executing: {os.path.basename(filepath)}")
+                      cur.execute(sql)
+                      print(f"     OK - Success")
+                      total_executed += 1
+                  except Exception as e:
+                      print(f"     FAILED: {filepath}")
+                      print(f"     Error: {e}")
+                      cur.close()
+                      conn.close()
+                      raise SystemExit(1)
+
+          cur.close()
+          conn.close()
+
+          print(f"\n{'='*60}")
+          print(f"Deployment complete!")
+          print(f"  Executed : {total_executed} file(s)")
+          print(f"  Skipped  : {total_skipped} file(s)")
+          print(f"{'='*60}")
+          EOF

@@ -1,0 +1,12 @@
+
+CREATE OR ALTER view APP_PULSE.US.CUSTOMER_V as
+select
+    CUST_NO,
+    NAME,
+    JOB,
+    MGR,
+    HIREDATE,
+    SAL,
+    COMM,
+    DEPTNO
+from APP_PULSE.US.CUSTOMER;
