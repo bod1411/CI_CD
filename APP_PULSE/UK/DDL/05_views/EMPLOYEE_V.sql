@@ -1,0 +1,15 @@
+
+USE DATABASE APP_PULSE;
+USE SCHEMA APP_PULSE.UK;
+
+CREATE OR ALTER view EMPLOYEE_V as
+select
+    EMPNO,
+    ENAME,
+    JOB,
+    MGR,
+    HIREDATE,
+    SAL,
+    COMM,
+    DEPTNO
+from EMPLOYEE;
