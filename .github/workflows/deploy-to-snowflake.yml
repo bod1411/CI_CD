@@ -81,8 +81,14 @@ jobs:
 
                   try:
                       print(f"  -> Executing: {os.path.basename(filepath)}")
-                      # Split on semicolons to support multi-statement files
-                      statements = [s.strip() for s in sql.split(';') if s.strip()]
+
+                      # If file contains $$ (procedures/functions), send as ONE statement
+                      # Otherwise split on ; to handle multi-statement DML files
+                      if '$$' in sql:
+                          statements = [sql]
+                      else:
+                          statements = [s.strip() for s in sql.split(';') if s.strip()]
+
                       for statement in statements:
                           cur.execute(statement)
                       print(f"     OK - Success ({len(statements)} statement(s))")
