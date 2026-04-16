@@ -1,0 +1,14 @@
+
+USE DATABASE WP4P;
+USE SCHEMA WP4P.DOCEBO;
+CREATE OR ALTER view EMPLOYEE_V as
+select
+    EMPNO,
+    ENAME,
+    JOB,
+    MGR,
+    HIREDATE,
+    SAL,
+    COMM,
+    DEPTNO
+from EMPLOYEE;
